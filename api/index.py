@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 from html import escape  # stops people from typing code into the boxes
 
+MANAGER_PASSWORD = "manager123"  # password for the Site Manager page
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.json")
 if os.environ.get("VERCEL"):
     DATA_FILE = "/tmp/data.json"  # on Vercel, only the /tmp folder can be written to
@@ -223,7 +224,17 @@ def confirm_page(r):
     return make_page(html)
 
 
+def manager_login_page(message):
+    html = "<h2>Site Manager</h2>"
+    if message != "":
+        html += "<p class='error'>" + message + "</p>"
+    html += "<form method='post' action='/manager'>"
+    html += "Password: <input name='password' type='password' required> <button>Log In</button></form>"
+    return make_page(html)
+
+
 def manager_page():
+    pw = "<input type='hidden' name='password' value='" + MANAGER_PASSWORD + "'>"
     html = "<h2>Site Manager</h2>"
 
     html += "<h3>All Listings</h3>"
@@ -236,7 +247,7 @@ def manager_page():
         html += "<tr><td data-label='Instrument'>" + item["name"] + "</td><td data-label='Owner'>" + item["owner"] + "</td>"
         html += "<td data-label='Price'>$" + format(item["price"], ".2f") + "</td><td data-label='Limit'>$" + format(get_limit(item["name"]), ".2f") + "</td>"
         html += "<td data-label='Status'>" + status + "</td>"
-        html += "<td><form method='post' action='/remove'>"
+        html += "<td><form method='post' action='/remove'>" + pw
         html += "<input type='hidden' name='id' value='" + str(item["id"]) + "'>"
         html += "<button>Remove</button></form></td></tr>"
     html += "</table>"
@@ -244,7 +255,7 @@ def manager_page():
     html += "<h3>Change Price Limits</h3>"
     html += "<table><tr><th>Instrument</th><th>Highest price per day</th></tr>"
     for name in price_limits:
-        html += "<tr><td data-label='Instrument'>" + name + "</td><td data-label='Limit'><form method='post' action='/set_limit'>"
+        html += "<tr><td data-label='Instrument'>" + name + "</td><td data-label='Limit'><form method='post' action='/set_limit'>" + pw
         html += "<input type='hidden' name='name' value='" + name + "'>"
         html += "$ <input name='limit' type='number' step='0.01' min='0' value='" + str(price_limits[name]) + "'> "
         html += "<button>Save</button></form></td></tr>"
@@ -342,7 +353,7 @@ class Handler(BaseHTTPRequestHandler):
         elif page == "/rules":
             self.show(rules_page())
         elif page == "/manager":
-            self.show(manager_page())
+            self.show(manager_login_page(""))
         else:
             self.send_error(404)
 
@@ -368,7 +379,11 @@ class Handler(BaseHTTPRequestHandler):
             return_instrument(int(form["num"][0]))
             self.go_to("/rentals")
 
-        # Site manager buttons
+        # Site manager pages need the password
+        elif "password" not in form or form["password"][0] != MANAGER_PASSWORD:
+            self.show(manager_login_page("Wrong password."))
+        elif page == "/manager":
+            self.show(manager_page())
         elif page == "/remove":
             remove_instrument(int(form["id"][0]))
             self.show(manager_page())
