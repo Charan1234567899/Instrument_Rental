@@ -98,11 +98,48 @@ button:hover { background: #f06f1c; }
 .free { color: #1a9e5c; font-weight: bold; }
 .box { background: #f4f1fb; border-left: 5px solid #8e5cf7; padding: 16px 20px; border-radius: 8px; }
 .error { background: #fdecec; border-left: 5px solid #d64545; padding: 16px 20px; border-radius: 8px; }
+input, select, button { font-size: 16px; }
+td form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
+
+/* Tablets */
+@media (max-width: 900px) {
+  main { margin: 20px 16px; padding: 22px; }
+  header { padding: 18px 20px; }
+  nav { margin-top: 10px; }
+  nav a { margin: 0 8px 0 0; }
+  td input[name=renter] { width: 130px; }
+}
+
+/* Phones */
+@media (max-width: 640px) {
+  header { flex-direction: column; align-items: flex-start; }
+  header h1 { font-size: 22px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; }
+  nav a { margin: 0; padding: 10px 14px; }
+  main { margin: 12px; padding: 18px; border-radius: 12px; }
+
+  /* tables turn into cards */
+  table, tbody, tr, td { display: block; width: 100%; }
+  tr:first-child { display: none; }
+  tr { background: #faf8ff; border: 1px solid #eee8f7; border-radius: 12px; margin-bottom: 14px; padding: 6px 0; }
+  td { border: none; padding: 8px 14px; box-sizing: border-box; }
+  td[data-label]::before { content: attr(data-label); display: block; font-size: 12px;
+                           font-weight: bold; color: #8e5cf7; text-transform: uppercase; margin-bottom: 4px; }
+  tr:hover td { background: none; }
+
+  /* forms fill the width so they're easy to tap */
+  form input, form select { width: 100%; box-sizing: border-box; padding: 12px; }
+  input[type=number] { width: 100%; }
+  button { width: 100%; padding: 14px; }
+  td form { flex-direction: column; align-items: stretch; }
+  td input[name=renter] { width: 100%; }
+  main > form button, main > form select { margin-top: 8px; }
+}
 """
 
 
 def make_page(content):
-    html = "<html><head><title>Instrument Rental</title><style>" + STYLE + "</style></head><body>"
+    html = "<html><head><title>Instrument Rental</title><meta name='viewport' content='width=device-width, initial-scale=1'><style>" + STYLE + "</style></head><body>"
     html += "<header><h1>&#127925; Instrument Rental</h1><nav>"
     html += "<a href='/'>Browse</a><a href='/list'>List an Instrument</a><a href='/rentals'>My Rentals</a>"
     html += "<a href='/rules'>Price Rules</a><a href='/manager'>Site Manager</a>"
@@ -123,8 +160,8 @@ def browse_page(search):
                 price = "<span class='free'>Library (free)</span>"
             else:
                 price = "$" + format(item["price"], ".2f") + "/day"
-            html += "<tr><td>" + item["name"] + "</td><td>" + item["owner"] + "</td><td>" + price + "</td>"
-            html += "<td><form method='post' action='/rent'>"
+            html += "<tr><td data-label='Instrument'>" + item["name"] + "</td><td data-label='From'>" + item["owner"] + "</td><td data-label='Price'>" + price + "</td>"
+            html += "<td data-label='Rent'><form method='post' action='/rent'>"
             html += "<input type='hidden' name='id' value='" + str(item["id"]) + "'>"
             html += "Your name: <input name='renter' required> "
             html += "Days: <input name='days' type='number' min='1' value='1' required> "
@@ -162,7 +199,7 @@ def rules_page():
     html += "</ul>"
     html += "<table><tr><th>Instrument</th><th>Highest price per day</th></tr>"
     for name in price_limits:
-        html += "<tr><td>" + name + "</td><td>$" + format(price_limits[name], ".2f") + "</td></tr>"
+        html += "<tr><td data-label='Instrument'>" + name + "</td><td data-label='Highest price per day'>$" + format(price_limits[name], ".2f") + "</td></tr>"
     html += "</table>"
     return make_page(html)
 
@@ -174,8 +211,8 @@ def rentals_page():
         html += "<tr><td colspan='6'>No current rentals.</td></tr>"
     for i in range(len(rentals)):
         r = rentals[i]
-        html += "<tr><td>" + r["name"] + "</td><td>" + r["owner"] + "</td><td>" + r["renter"] + "</td>"
-        html += "<td>" + str(r["days"]) + "</td><td>$" + format(r["total"], ".2f") + "</td>"
+        html += "<tr><td data-label='Instrument'>" + r["name"] + "</td><td data-label='From'>" + r["owner"] + "</td><td data-label='Renter'>" + r["renter"] + "</td>"
+        html += "<td data-label='Days'>" + str(r["days"]) + "</td><td data-label='Total'>$" + format(r["total"], ".2f") + "</td>"
         html += "<td><form method='post' action='/return'><input type='hidden' name='num' value='" + str(i) + "'>"
         html += "<button>Return</button></form></td></tr>"
     html += "</table>"
@@ -200,21 +237,21 @@ def manager_page():
             status = "Available"
         else:
             status = "Rented"
-        html += "<tr><td>" + item["name"] + "</td><td>" + item["owner"] + "</td>"
-        html += "<td>$" + format(item["price"], ".2f") + "</td><td>$" + format(get_limit(item["name"]), ".2f") + "</td>"
-        html += "<td>" + status + "</td>"
+        html += "<tr><td data-label='Instrument'>" + item["name"] + "</td><td data-label='Owner'>" + item["owner"] + "</td>"
+        html += "<td data-label='Price'>$" + format(item["price"], ".2f") + "</td><td data-label='Limit'>$" + format(get_limit(item["name"]), ".2f") + "</td>"
+        html += "<td data-label='Status'>" + status + "</td>"
         html += "<td><form method='post' action='/remove'>"
         html += "<input type='hidden' name='id' value='" + str(item["id"]) + "'>"
         html += "<button>Remove</button></form></td></tr>"
     html += "</table>"
 
     html += "<h3>Change Price Limits</h3>"
-    html += "<table><tr><th>Instrument</th><th>Highest price per day</th><th></th></tr>"
+    html += "<table><tr><th>Instrument</th><th>Highest price per day</th></tr>"
     for name in price_limits:
-        html += "<tr><td>" + name + "</td><td><form method='post' action='/set_limit'>"
+        html += "<tr><td data-label='Instrument'>" + name + "</td><td data-label='Limit'><form method='post' action='/set_limit'>"
         html += "<input type='hidden' name='name' value='" + name + "'>"
         html += "$ <input name='limit' type='number' step='0.01' min='0' value='" + str(price_limits[name]) + "'> "
-        html += "<button>Save</button></form></td><td></td></tr>"
+        html += "<button>Save</button></form></td></tr>"
     html += "</table>"
     return make_page(html)
 
