@@ -194,13 +194,9 @@ def rules_page():
     html += "<ul>"
     html += "<li>There are no website fees. The owner gets the full rental price.</li>"
     html += "<li>Library instruments are always free.</li>"
-    html += "<li>Owners set their own price per day, but it can't go over the price limit below.</li>"
+    html += "<li>Owners set their own price per day, but it can't go over the price limit for that instrument.</li>"
     html += "<li>The site manager can remove any listing that breaks these rules.</li>"
     html += "</ul>"
-    html += "<table><tr><th>Instrument</th><th>Highest price per day</th></tr>"
-    for name in price_limits:
-        html += "<tr><td data-label='Instrument'>" + name + "</td><td data-label='Highest price per day'>$" + format(price_limits[name], ".2f") + "</td></tr>"
-    html += "</table>"
     return make_page(html)
 
 
