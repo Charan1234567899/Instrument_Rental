@@ -1,5 +1,5 @@
 # Instrument Rental is a free instrument library + people renting their instruments to others.
-# There are no website fees: the owner gets the full rental price.
+# Each rental price is split between the owner, instrument repairs and site maintenance.
 # A price limit (ceiling) for each instrument stops people from overcharging.
 # A site manager can remove listings and change the price limits.
 
@@ -17,6 +17,11 @@ if os.environ.get("VERCEL"):
 
 # ---------------- Data ----------------
 # Highest price per day an owner is allowed to charge for each instrument.
+# Where the rental money goes (must add up to 1.00)
+OWNER_SHARE = 0.85    # 85% to the instrument owner
+REPAIR_SHARE = 0.10   # 10% to instrument repairs
+SITE_SHARE = 0.05     # 5% to site maintenance
+
 price_limits = {
     "Guitar": 10,
     "Violin": 10,
@@ -186,18 +191,25 @@ def list_page(message):
     html += "Your name: <input name='owner' required><br><br>"
     html += "Price per day ($): <input name='price' type='number' step='0.01' min='0' required><br><br>"
     html += "<button>List Instrument</button></form>"
-    html += "<p>Each instrument has a highest price you can charge. See <a href='/rules'>Price Rules</a>.</p>"
+    html += "<p>Each instrument has a price limit. If your price is too high, the site will ask you to lower it.</p>"
+    html += "<p>You get " + str(round(OWNER_SHARE * 100)) + "% of the rental price. The rest goes to instrument repairs (" + str(round(REPAIR_SHARE * 100)) + "%) and site maintenance (" + str(round(SITE_SHARE * 100)) + "%). <a href='/rules'>See Price Rules</a>.</p>"
     return make_page(html)
 
 
 def rules_page():
     html = "<h2>Price Rules</h2>"
     html += "<ul>"
-    html += "<li>There are no website fees. The owner gets the full rental price.</li>"
     html += "<li>Library instruments are always free.</li>"
     html += "<li>Owners set their own price per day, but it can't go over the price limit for that instrument.</li>"
     html += "<li>The site manager can remove any listing that breaks these rules.</li>"
     html += "</ul>"
+    html += "<h3>Where your money goes</h3>"
+    html += "<table><tr><th>Goes to</th><th>Share of the price</th><th>Example: $10 rental</th></tr>"
+    html += "<tr><td data-label='Goes to'>Instrument owner</td><td data-label='Share'>" + str(round(OWNER_SHARE * 100)) + "%</td><td data-label='Example: $10 rental'>$" + format(10 * OWNER_SHARE, ".2f") + "</td></tr>"
+    html += "<tr><td data-label='Goes to'>Instrument repairs</td><td data-label='Share'>" + str(round(REPAIR_SHARE * 100)) + "%</td><td data-label='Example: $10 rental'>$" + format(10 * REPAIR_SHARE, ".2f") + "</td></tr>"
+    html += "<tr><td data-label='Goes to'>Site maintenance</td><td data-label='Share'>" + str(round(SITE_SHARE * 100)) + "%</td><td data-label='Example: $10 rental'>$" + format(10 * SITE_SHARE, ".2f") + "</td></tr>"
+    html += "</table>"
+    html += "<p>The price you see is the total you pay.</p>"
     return make_page(html)
 
 
@@ -219,8 +231,15 @@ def rentals_page():
 def confirm_page(r):
     html = "<h2>Rental Confirmed</h2>"
     html += "<p>You rented a <b>" + r["name"] + "</b> from <b>" + r["owner"] + "</b> for " + str(r["days"]) + " day(s).</p>"
-    html += "<p class='box'>Total: $" + format(r["total"], ".2f") + "<br>"
-    html += "The owner receives the full amount (no website fees).</p>"
+    if r["total"] == 0:
+        html += "<p class='box'>This is a free library instrument, so you pay nothing.</p>"
+    else:
+        html += "<div class='box'><b>Total: $" + format(r["total"], ".2f") + "</b><br><br>Where your money goes:"
+        html += "<ul>"
+        html += "<li>Instrument owner (" + r["owner"] + "): $" + format(r["owner_gets"], ".2f") + "</li>"
+        html += "<li>Instrument repairs: $" + format(r["repairs"], ".2f") + "</li>"
+        html += "<li>Site maintenance: $" + format(r["site"], ".2f") + "</li>"
+        html += "</ul></div>"
     return make_page(html)
 
 
@@ -270,9 +289,13 @@ def rent_instrument(id, renter, days):
     if item == None or item["available"] == False:
         return make_page("<p>Sorry, that instrument is no longer available.</p>")
     total = item["price"] * days
+    owner_gets = round(total * OWNER_SHARE, 2)
+    repairs = round(total * REPAIR_SHARE, 2)
+    site = round(total - owner_gets - repairs, 2)
     item["available"] = False
     rental = {"id": id, "name": item["name"], "owner": item["owner"], "renter": renter,
-              "days": days, "total": total}
+              "days": days, "total": total,
+              "owner_gets": owner_gets, "repairs": repairs, "site": site}
     rentals.append(rental)
     save_data()
     return confirm_page(rental)
@@ -284,7 +307,7 @@ def add_instrument(name, owner, price):
     # The price check: owners can't charge more than the limit
     limit = get_limit(name)
     if price > limit:
-        return "The highest price for a " + name + " is $" + format(limit, ".2f") + " per day. Please lower your price."
+        return "Exceeds price limit: the highest price for a " + name + " is $" + format(limit, ".2f") + " per day. Please lower your price."
     new_id = 1
     for item in instruments:
         if item["id"] >= new_id:
