@@ -39,11 +39,11 @@ price_limits = {
 
 # Each instrument is a dictionary. "price" of 0 means it's from the free library.
 instruments = [
-    {"id": 1, "name": "Guitar", "owner": "Library", "price": 0, "available": True},
-    {"id": 2, "name": "Violin", "owner": "Library", "price": 0, "available": True},
-    {"id": 3, "name": "Guitar", "owner": "Alex", "price": 5, "available": True},
-    {"id": 4, "name": "Guitar", "owner": "Sam", "price": 4, "available": True},
-    {"id": 5, "name": "Keyboard", "owner": "Jordan", "price": 6, "available": True},
+    {"id": 1, "name": "Guitar", "owner": "Library", "phone": "555-0100", "email": "library@example.com", "price": 0, "available": True},
+    {"id": 2, "name": "Violin", "owner": "Library", "phone": "555-0100", "email": "library@example.com", "price": 0, "available": True},
+    {"id": 3, "name": "Guitar", "owner": "Alex", "phone": "555-0101", "email": "alex@example.com", "price": 5, "available": True},
+    {"id": 4, "name": "Guitar", "owner": "Sam", "phone": "555-0102", "email": "sam@example.com", "price": 4, "available": True},
+    {"id": 5, "name": "Keyboard", "owner": "Jordan", "phone": "555-0103", "email": "jordan@example.com", "price": 6, "available": True},
 ]
 rentals = []
 
@@ -147,7 +147,7 @@ td form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin:
 def make_page(content):
     html = "<html><head><title>Instrument Rental</title><meta name='viewport' content='width=device-width, initial-scale=1'><style>" + STYLE + "</style></head><body>"
     html += "<header><h1>&#127925; Instrument Rental</h1><nav>"
-    html += "<a href='/'>Browse</a><a href='/list'>List an Instrument</a><a href='/rentals'>My Rentals</a>"
+    html += "<a href='/'>Browse</a><a href='/list'>List an Instrument</a><a href='/rentals'>My Rentals</a><a href='/owner'>For Owners</a>"
     html += "<a href='/rules'>Price Rules</a><a href='/manager'>Site Manager</a>"
     html += "</nav></header><main>" + content + "</main></body></html>"
     return html
@@ -167,9 +167,8 @@ def browse_page(search):
             else:
                 price = "$" + format(item["price"], ".2f") + "/day"
             html += "<tr><td data-label='Instrument'>" + item["name"] + "</td><td data-label='From'>" + item["owner"] + "</td><td data-label='Price'>" + price + "</td>"
-            html += "<td data-label='Rent'><form method='post' action='/rent'>"
+            html += "<td data-label='Rent'><form method='post' action='/checkout'>"
             html += "<input type='hidden' name='id' value='" + str(item["id"]) + "'>"
-            html += "Your name: <input name='renter' required> "
             html += "Days: <input name='days' type='number' min='1' value='1' required> "
             html += "<button>Rent</button></form></td></tr>"
 
@@ -189,10 +188,16 @@ def list_page(message):
         html += "<option>" + name + "</option>"
     html += "</select><br><br>"
     html += "Your name: <input name='owner' required><br><br>"
+    html += "Your phone number: <input name='phone' type='tel' required><br><br>"
+    html += "Your email: <input name='email' type='email' required><br><br>"
     html += "Price per day ($): <input name='price' type='number' step='0.01' min='0' required><br><br>"
     html += "<button>List Instrument</button></form>"
     html += "<p>Each instrument has a price limit. If your price is too high, the site will ask you to lower it.</p>"
-    html += "<p>You get " + str(round(OWNER_SHARE * 100)) + "% of the rental price. The rest goes to instrument repairs (" + str(round(REPAIR_SHARE * 100)) + "%) and site maintenance (" + str(round(SITE_SHARE * 100)) + "%). <a href='/rules'>See Price Rules</a>.</p>"
+    html += "<p><b>How you get paid:</b> you keep " + str(round(OWNER_SHARE * 100)) + "% of every rental. "
+    html += "For example, if you charge $10 per day and someone rents your instrument for 3 days, they pay $30.00. "
+    html += "You get $" + format(30 * OWNER_SHARE, ".2f") + ", $" + format(30 * REPAIR_SHARE, ".2f") + " goes to instrument repairs, "
+    html += "and $" + format(30 * SITE_SHARE, ".2f") + " goes to site maintenance. <a href='/rules'>See Price Rules</a>.</p>"
+    html += "<p>When someone rents your instrument, you can see their name, phone number and email on the <a href='/owner'>For Owners</a> page.</p>"
     return make_page(html)
 
 
@@ -228,6 +233,62 @@ def rentals_page():
     return make_page(html)
 
 
+def checkout_page(item, days, message):
+    total = item["price"] * days
+    html = "<h2>Checkout</h2>"
+    if message != "":
+        html += "<p class='error'>" + message + "</p>"
+    html += "<p>You are renting a <b>" + item["name"] + "</b> from <b>" + item["owner"] + "</b> for " + str(days) + " day(s).</p>"
+    if total == 0:
+        html += "<p class='box'>This is a free library instrument, so you pay nothing.</p>"
+    else:
+        html += "<div class='box'><b>Total: $" + format(total, ".2f") + "</b><br><br>Where your money goes:<ul>"
+        owner_gets = round(total * OWNER_SHARE, 2)
+        repairs = round(total * REPAIR_SHARE, 2)
+        site = round(total - owner_gets - repairs, 2)
+        html += "<li>Instrument owner (" + item["owner"] + "): $" + format(owner_gets, ".2f") + "</li>"
+        html += "<li>Instrument repairs: $" + format(repairs, ".2f") + "</li>"
+        html += "<li>Site maintenance: $" + format(site, ".2f") + "</li>"
+        html += "</ul></div>"
+    html += "<h3>Your contact information</h3>"
+    html += "<p>We share this with " + item["owner"] + " so they can contact you to hand over the instrument.</p>"
+    html += "<form method='post' action='/rent'>"
+    html += "<input type='hidden' name='id' value='" + str(item["id"]) + "'>"
+    html += "<input type='hidden' name='days' value='" + str(days) + "'>"
+    html += "Your name: <input name='renter' required><br><br>"
+    html += "Phone number: <input name='phone' type='tel' required><br><br>"
+    html += "Email: <input name='email' type='email' required><br><br>"
+    html += "<button>Confirm Rental</button></form>"
+    return make_page(html)
+
+
+def owner_login_page(message):
+    html = "<h2>For Owners</h2>"
+    if message != "":
+        html += "<p class='error'>" + message + "</p>"
+    html += "<p>Enter the email you used when you listed your instrument to see who has rented it.</p>"
+    html += "<form method='post' action='/owner'>"
+    html += "Your email: <input name='email' type='email' required> <button>See My Rentals</button></form>"
+    return make_page(html)
+
+
+def owner_page(email):
+    html = "<h2>For Owners</h2>"
+    html += "<p>Rentals of instruments listed with <b>" + email + "</b>. Please contact each renter to arrange the hand-over.</p>"
+    html += "<table><tr><th>Instrument</th><th>Renter</th><th>Phone</th><th>Email</th><th>Days</th><th>You get</th></tr>"
+    found = False
+    for r in rentals:
+        if r.get("owner_email", "").lower() == email.lower():
+            found = True
+            html += "<tr><td data-label='Instrument'>" + r["name"] + "</td><td data-label='Renter'>" + r["renter"] + "</td>"
+            html += "<td data-label='Phone'>" + r.get("phone", "") + "</td><td data-label='Email'>" + r.get("email", "") + "</td>"
+            html += "<td data-label='Days'>" + str(r["days"]) + "</td><td data-label='You get'>$" + format(r.get("owner_gets", 0), ".2f") + "</td></tr>"
+    if not found:
+        html += "<tr><td colspan='6'>No one has rented your instruments yet.</td></tr>"
+    html += "</table>"
+    return make_page(html)
+
+
 def confirm_page(r):
     html = "<h2>Rental Confirmed</h2>"
     html += "<p>You rented a <b>" + r["name"] + "</b> from <b>" + r["owner"] + "</b> for " + str(r["days"]) + " day(s).</p>"
@@ -240,6 +301,10 @@ def confirm_page(r):
         html += "<li>Instrument repairs: $" + format(r["repairs"], ".2f") + "</li>"
         html += "<li>Site maintenance: $" + format(r["site"], ".2f") + "</li>"
         html += "</ul></div>"
+    html += "<h3>What happens next</h3>"
+    html += "<p>We shared your name, phone number and email with <b>" + r["owner"] + "</b>. They will contact you to hand over the instrument.</p>"
+    if r.get("owner_phone", "") != "":
+        html += "<p>You can also contact " + r["owner"] + " at " + r["owner_phone"] + " or " + r["owner_email"] + ".</p>"
     return make_page(html)
 
 
@@ -283,17 +348,23 @@ def manager_page():
 
 
 # ---------------- Actions ----------------
-def rent_instrument(id, renter, days):
-    renter = escape(renter)
+def rent_instrument(id, renter, phone, email, days):
+    renter = escape(renter.strip())
+    phone = escape(phone.strip())
+    email = escape(email.strip())
     item = find_instrument(id)
     if item == None or item["available"] == False:
         return make_page("<p>Sorry, that instrument is no longer available.</p>")
+    if renter == "" or phone == "" or "@" not in email:
+        return checkout_page(item, days, "Please enter your name, phone number and email.")
     total = item["price"] * days
     owner_gets = round(total * OWNER_SHARE, 2)
     repairs = round(total * REPAIR_SHARE, 2)
     site = round(total - owner_gets - repairs, 2)
     item["available"] = False
     rental = {"id": id, "name": item["name"], "owner": item["owner"], "renter": renter,
+              "phone": phone, "email": email,
+              "owner_phone": item.get("phone", ""), "owner_email": item.get("email", ""),
               "days": days, "total": total,
               "owner_gets": owner_gets, "repairs": repairs, "site": site}
     rentals.append(rental)
@@ -301,9 +372,11 @@ def rent_instrument(id, renter, days):
     return confirm_page(rental)
 
 
-def add_instrument(name, owner, price):
+def add_instrument(name, owner, phone, email, price):
     name = escape(name)
     owner = escape(owner)
+    phone = escape(phone.strip())
+    email = escape(email.strip())
     # The price check: owners can't charge more than the limit
     limit = get_limit(name)
     if price > limit:
@@ -312,7 +385,8 @@ def add_instrument(name, owner, price):
     for item in instruments:
         if item["id"] >= new_id:
             new_id = item["id"] + 1
-    instruments.append({"id": new_id, "name": name, "owner": owner, "price": price, "available": True})
+    instruments.append({"id": new_id, "name": name, "owner": owner, "phone": phone, "email": email,
+                        "price": price, "available": True})
     save_data()
     return ""
 
@@ -375,6 +449,8 @@ class Handler(BaseHTTPRequestHandler):
             self.show(rentals_page())
         elif page == "/rules":
             self.show(rules_page())
+        elif page == "/owner":
+            self.show(owner_login_page(""))
         elif page == "/manager":
             self.show(manager_login_page(""))
         else:
@@ -387,13 +463,23 @@ class Handler(BaseHTTPRequestHandler):
         load_data()
         page = self.get_page()
 
-        if page == "/rent":
+        if page == "/checkout":
+            item = find_instrument(int(form["id"][0]))
+            if item == None or item["available"] == False:
+                self.show(make_page("<p>Sorry, that instrument is no longer available.</p>"))
+            else:
+                self.show(checkout_page(item, int(form["days"][0]), ""))
+        elif page == "/rent":
             id = int(form["id"][0])
-            renter = form["renter"][0]
+            renter = form.get("renter", [""])[0]
+            phone = form.get("phone", [""])[0]
+            email = form.get("email", [""])[0]
             days = int(form["days"][0])
-            self.show(rent_instrument(id, renter, days))
+            self.show(rent_instrument(id, renter, phone, email, days))
+        elif page == "/owner":
+            self.show(owner_page(escape(form["email"][0].strip())))
         elif page == "/list":
-            message = add_instrument(form["name"][0], form["owner"][0], float(form["price"][0]))
+            message = add_instrument(form["name"][0], form["owner"][0], form["phone"][0], form["email"][0], float(form["price"][0]))
             if message == "":
                 self.go_to("/")
             else:
