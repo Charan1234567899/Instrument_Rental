@@ -192,12 +192,6 @@ def list_page(message):
     html += "Your email: <input name='email' type='email' required><br><br>"
     html += "Price per day ($): <input name='price' type='number' step='0.01' min='0' required><br><br>"
     html += "<button>List Instrument</button></form>"
-    html += "<p>Each instrument has a price limit. If your price is too high, the site will ask you to lower it.</p>"
-    html += "<p><b>How you get paid:</b> you keep " + str(round(OWNER_SHARE * 100)) + "% of every rental. "
-    html += "For example, if you charge $10 per day and someone rents your instrument for 3 days, they pay $30.00. "
-    html += "You get $" + format(30 * OWNER_SHARE, ".2f") + ", $" + format(30 * REPAIR_SHARE, ".2f") + " goes to instrument repairs, "
-    html += "and $" + format(30 * SITE_SHARE, ".2f") + " goes to site maintenance. <a href='/rules'>See Price Rules</a>.</p>"
-    html += "<p>When someone rents your instrument, you can see their name, phone number and email on the <a href='/owner'>For Owners</a> page.</p>"
     return make_page(html)
 
 
